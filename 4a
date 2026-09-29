@@ -1,0 +1,599 @@
+# ============================================================
+# CLUSTERING + ASSOCIATION RULE MINING + CLASSIFICATION
+# ============================================================
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.datasets import load_iris
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans, DBSCAN
+from sklearn.mixture import GaussianMixture
+from sklearn.metrics import (
+    silhouette_score,
+    accuracy_score
+)
+
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import cross_val_score, StratifiedKFold
+from sklearn.dummy import DummyClassifier
+
+from mlxtend.frequent_patterns import apriori, fpgrowth
+from mlxtend.preprocessing import TransactionEncoder
+
+
+# ============================================================
+# PART A - LOAD IRIS DATASET
+# ============================================================
+
+iris = load_iris()
+
+X = iris.data
+y = iris.target
+
+feature_names = iris.feature_names
+class_names = iris.target_names
+
+print("\n======================================")
+print("IRIS DATASET")
+print("======================================")
+
+print("Number of instances:", len(X))
+print("Number of attributes:", X.shape[1])
+print("Features:", feature_names)
+
+
+# ============================================================
+# STANDARDIZATION
+# ============================================================
+
+scaler = StandardScaler()
+
+X_scaled = scaler.fit_transform(X)
+
+
+# ============================================================
+# K-MEANS FOR k = 2,3,4,5
+# ============================================================
+
+k_values = [2, 3, 4, 5]
+
+sse_values = []
+
+print("\n======================================")
+print("K-MEANS CLUSTERING")
+print("======================================")
+
+for k in k_values:
+
+    kmeans = KMeans(
+        n_clusters=k,
+        random_state=10,
+        n_init=10
+    )
+
+    labels = kmeans.fit_predict(X_scaled)
+
+    sse = kmeans.inertia_
+
+    sse_values.append(sse)
+
+    silhouette = silhouette_score(
+        X_scaled,
+        labels
+    )
+
+    print("\nK =", k)
+    print("SSE:", round(sse, 3))
+    print("Silhouette Score:", round(silhouette, 3))
+
+    print("Cluster distribution:")
+    print(
+        pd.Series(labels)
+        .value_counts()
+        .sort_index()
+    )
+
+    print("Centroids:")
+    print(kmeans.cluster_centers_)
+
+
+# ============================================================
+# ELBOW METHOD
+# ============================================================
+
+plt.figure()
+
+plt.plot(
+    k_values,
+    sse_values,
+    marker="o"
+)
+
+plt.xlabel("Number of Clusters (k)")
+plt.ylabel("SSE")
+plt.title("Elbow Method for K-Means")
+
+plt.xticks(k_values)
+
+plt.show()
+
+
+# ============================================================
+# BEST K = 3
+# ============================================================
+
+kmeans = KMeans(
+    n_clusters=3,
+    random_state=10,
+    n_init=10
+)
+
+kmeans_labels = kmeans.fit_predict(
+    X_scaled
+)
+
+print("\n======================================")
+print("K-MEANS WITH K = 3")
+print("======================================")
+
+print("SSE:", kmeans.inertia_)
+
+print("\nCluster distribution:")
+print(
+    pd.Series(kmeans_labels)
+    .value_counts()
+    .sort_index()
+)
+
+print("\nCentroids:")
+print(kmeans.cluster_centers_)
+
+
+# ============================================================
+# K-MEANS VISUALIZATION
+# ============================================================
+
+plt.figure()
+
+plt.scatter(
+    X[:, 2],
+    X[:, 3],
+    c=kmeans_labels
+)
+
+plt.xlabel("Petal Length")
+plt.ylabel("Petal Width")
+
+plt.title(
+    "K-Means Clusters - Iris"
+)
+
+plt.show()
+
+
+# ============================================================
+# ACTUAL CLASS VISUALIZATION
+# ============================================================
+
+plt.figure()
+
+plt.scatter(
+    X[:, 2],
+    X[:, 3],
+    c=y
+)
+
+plt.xlabel("Petal Length")
+plt.ylabel("Petal Width")
+
+plt.title(
+    "Actual Iris Classes"
+)
+
+plt.show()
+
+
+# ============================================================
+# PART A - EM CLUSTERING
+# ============================================================
+
+print("\n======================================")
+print("EM / GAUSSIAN MIXTURE CLUSTERING")
+print("======================================")
+
+em = GaussianMixture(
+    n_components=3,
+    random_state=10
+)
+
+em_labels = em.fit_predict(
+    X_scaled
+)
+
+print("Cluster distribution:")
+
+print(
+    pd.Series(em_labels)
+    .value_counts()
+    .sort_index()
+)
+
+print(
+    "Log Likelihood:",
+    round(em.score(X_scaled), 4)
+)
+
+
+# ============================================================
+# EM VISUALIZATION
+# ============================================================
+
+plt.figure()
+
+plt.scatter(
+    X[:, 2],
+    X[:, 3],
+    c=em_labels
+)
+
+plt.xlabel("Petal Length")
+plt.ylabel("Petal Width")
+
+plt.title(
+    "EM Clustering - Iris"
+)
+
+plt.show()
+
+
+# ============================================================
+# DBSCAN
+# ============================================================
+
+print("\n======================================")
+print("DBSCAN")
+print("======================================")
+
+dbscan = DBSCAN(
+    eps=0.5,
+    min_samples=5
+)
+
+db_labels = dbscan.fit_predict(
+    X_scaled
+)
+
+print("Cluster labels:")
+print(np.unique(db_labels))
+
+print("\nCluster distribution:")
+print(
+    pd.Series(db_labels)
+    .value_counts()
+    .sort_index()
+)
+
+noise_count = sum(
+    db_labels == -1
+)
+
+print(
+    "Noise points:",
+    noise_count
+)
+
+
+# ============================================================
+# DBSCAN VISUALIZATION
+# ============================================================
+
+plt.figure()
+
+plt.scatter(
+    X[:, 2],
+    X[:, 3],
+    c=db_labels
+)
+
+plt.xlabel("Petal Length")
+plt.ylabel("Petal Width")
+
+plt.title(
+    "DBSCAN Clustering - Iris"
+)
+
+plt.show()
+
+
+# ============================================================
+# CLUSTERING COMPARISON
+# ============================================================
+
+print("\n======================================")
+print("CLUSTERING COMPARISON")
+print("======================================")
+
+print(
+    "K-Means clusters:",
+    len(np.unique(kmeans_labels))
+)
+
+print(
+    "EM clusters:",
+    len(np.unique(em_labels))
+)
+
+print(
+    "DBSCAN clusters:",
+    len(
+        set(db_labels) -
+        {-1}
+    )
+)
+
+print(
+    "DBSCAN noise:",
+    noise_count
+)
+
+
+# ============================================================
+# PART B - ZERO R CLASSIFIER
+# ============================================================
+
+print("\n======================================")
+print("ZeroR CLASSIFIER")
+print("======================================")
+
+zero_r = DummyClassifier(
+    strategy="most_frequent"
+)
+
+cv = StratifiedKFold(
+    n_splits=10,
+    shuffle=True,
+    random_state=10
+)
+
+zero_scores = cross_val_score(
+    zero_r,
+    X,
+    y,
+    cv=cv
+)
+
+print(
+    "ZeroR Accuracy:",
+    round(
+        zero_scores.mean() * 100,
+        2
+    ),
+    "%"
+)
+
+
+# ============================================================
+# J48 EQUIVALENT
+# ============================================================
+
+print("\n======================================")
+print("J48 EQUIVALENT DECISION TREE")
+print("======================================")
+
+j48 = DecisionTreeClassifier(
+    criterion="entropy",
+    random_state=10
+)
+
+j48_scores = cross_val_score(
+    j48,
+    X,
+    y,
+    cv=cv
+)
+
+print(
+    "J48 Accuracy:",
+    round(
+        j48_scores.mean() * 100,
+        2
+    ),
+    "%"
+)
+
+
+# ============================================================
+# ZERO R VS J48
+# ============================================================
+
+print("\n======================================")
+print("ZERO R VS J48")
+print("======================================")
+
+print(
+    "ZeroR:",
+    round(
+        zero_scores.mean() * 100,
+        2
+    ),
+    "%"
+)
+
+print(
+    "J48:",
+    round(
+        j48_scores.mean() * 100,
+        2
+    ),
+    "%"
+)
+
+
+# ============================================================
+# PART C - ASSOCIATION RULE MINING
+# ============================================================
+
+print("\n======================================")
+print("ASSOCIATION RULE MINING")
+print("======================================")
+
+
+# Example supermarket transactions
+
+transactions = [
+    ["bread", "milk"],
+    ["bread", "butter"],
+    ["milk", "butter"],
+    ["bread", "milk", "butter"],
+    ["bread", "milk"],
+    ["milk", "butter"],
+    ["bread", "butter"],
+    ["bread", "milk", "butter"],
+    ["bread", "milk"],
+    ["milk"]
+]
+
+
+# ============================================================
+# ONE-HOT ENCODING
+# ============================================================
+
+encoder = TransactionEncoder()
+
+encoded_data = encoder.fit(
+    transactions
+).transform(
+    transactions
+)
+
+supermarket = pd.DataFrame(
+    encoded_data,
+    columns=encoder.columns_
+)
+
+print("\nOne-Hot Encoded Data:")
+print(supermarket)
+
+
+# ============================================================
+# APRIORI
+# ============================================================
+
+print("\n======================================")
+print("APRIORI")
+print("======================================")
+
+frequent_apriori = apriori(
+    supermarket,
+    min_support=0.2,
+    use_colnames=True
+)
+
+print("\nFrequent Itemsets:")
+print(frequent_apriori)
+
+
+# ============================================================
+# ASSOCIATION RULES
+# ============================================================
+
+from mlxtend.frequent_patterns import association_rules
+
+rules = association_rules(
+    frequent_apriori,
+    metric="confidence",
+    min_threshold=0.6
+)
+
+print("\nApriori Association Rules:")
+
+if len(rules) > 0:
+
+    print(
+        rules[
+            [
+                "antecedents",
+                "consequents",
+                "support",
+                "confidence",
+                "lift"
+            ]
+        ]
+    )
+
+else:
+
+    print("No rules found.")
+
+
+# ============================================================
+# FP-GROWTH
+# ============================================================
+
+print("\n======================================")
+print("FP-GROWTH")
+print("======================================")
+
+frequent_fp = fpgrowth(
+    supermarket,
+    min_support=0.2,
+    use_colnames=True
+)
+
+print("\nFP-Growth Frequent Itemsets:")
+print(frequent_fp)
+
+
+# ============================================================
+# FP-GROWTH RULES
+# ============================================================
+
+fp_rules = association_rules(
+    frequent_fp,
+    metric="confidence",
+    min_threshold=0.6
+)
+
+print("\nFP-Growth Association Rules:")
+
+if len(fp_rules) > 0:
+
+    print(
+        fp_rules[
+            [
+                "antecedents",
+                "consequents",
+                "support",
+                "confidence",
+                "lift"
+            ]
+        ]
+    )
+
+else:
+
+    print("No rules found.")
+
+
+# ============================================================
+# FINAL SUMMARY
+# ============================================================
+
+print("\n======================================")
+print("FINAL SUMMARY")
+print("======================================")
+
+print("""
+1. K-Means was performed for k = 2, 3, 4 and 5.
+2. SSE values were calculated.
+3. Elbow method was used to select k.
+4. EM clustering was performed.
+5. DBSCAN clustering was performed.
+6. Cluster visualizations were generated.
+7. ZeroR baseline classification was performed.
+8. J48-equivalent decision tree was evaluated.
+9. Apriori association rule mining was performed.
+10. FP-Growth association rule mining was performed.
+""")
